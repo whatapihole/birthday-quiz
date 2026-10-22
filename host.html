@@ -16896,10 +16896,23 @@ window.QUIZ_BANK = [
       const replaced = await preparePictures(r, bank, (d, n) => { const b = $("#lbar"); if (b) b.style.width = (n ? 100 * d / n : 100) + "%"; const t = $("#ltxt"); if (t) t.textContent = `${d} / ${n}`; });
       if (replaced) toast(`${replaced} picture question${replaced > 1 ? "s" : ""} couldn't load and ${replaced > 1 ? "were" : "was"} swapped`, 5000);
     }
+    const carried = transport && engine ? engine.players : null;
     engine = new QuizEngine(st, r.filter((x) => x.questions.length));
-    room = newCode();
     localStorage.removeItem(LS.save);
-    boot();
+    if (carried) {
+      // Same room, same connections: keep everyone who joined, reset their scores.
+      for (const p of Object.values(carried)) {
+        Object.assign(p, { score: 0, bonus: 0, streak: 0, bestStreak: 0, correct: 0, correctMs: 0, jokerRound: null, last: null });
+        if (!engine.teamMode) p.team = null;
+        engine.players[p.pid] = p;
+      }
+      engine.touch();
+      document.body.className = "host";
+      sync(true);
+    } else {
+      room = newCode();
+      boot();
+    }
   }
   function resumeGame(save) {
     engine = QuizEngine.restore(save.engine, now());
@@ -17204,10 +17217,11 @@ window.QUIZ_BANK = [
       <div class="podium">${P(1, "p2")}${P(0, "p1")}${P(2, "p3")}</div>
       <div class="awards">${(v.awards || []).map((a) => `<div class="award pop"><div class="ic">${a.icon}</div><b>${a.title}</b><div>${esc(a.who)}</div><div class="muted">${esc(a.detail)}</div></div>`).join("")}</div>
       ${b.length > 3 ? `<div class="center muted" style="margin-top:2vh;font-size:2.4vh">${b.slice(3).map((r) => `${r.rank}. ${esc(r.name)} (${r.score.toLocaleString()})`).join(" · ")}</div>` : ""}
-      <div class="center" style="margin-top:2vh"><button class="secondary" id="newGame" onclick="localStorage.removeItem('${LS.save}');location.reload()">🔁 New game</button></div>`;
+      <div class="center" style="margin-top:2vh"><button class="secondary" id="newGame" onclick="localStorage.removeItem('${LS.save}');window.__newGame()">🔁 New game</button></div>`;
   }
 
   window.addEventListener("beforeunload", (e) => { if (engine && !["lobby", "final"].includes(engine.phase)) { e.preventDefault(); e.returnValue = ""; } });
+  window.__newGame = () => renderSetup();
   renderSetup();
 })();
 
